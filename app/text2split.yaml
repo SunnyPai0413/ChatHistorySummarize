@@ -1,0 +1,11 @@
+version: '3'
+services:
+  your-service-name:
+    image: text2split
+    environment:
+      TMP_PATH: "/path/to/temp/folder" # path to txt file after splitting
+      SAVE_PATH: "/path/to/source/folder" # path to source file
+      OVERWRITE_FLAG: "0"  # "1" to overwrite temp txt files when source file changes
+      CSV_OUTPUT_PATH: "/path/to/csv/folder" # path to csv folder
+    volumes:
+      - /path/on/host:/path/in/container  # set as needed
