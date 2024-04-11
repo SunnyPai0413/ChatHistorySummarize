@@ -1,10 +1,10 @@
 # ChatHistorySummarize
-A project to summarize chat histories into documents.
+A project to summarize chat histories into documents.  
 It is supporting WeChat now, maybe QQ and Telegram in later days.
 
 ## Functions:
-Split text files exported from Memotrace: <https://github.com/LC044/WeChatMsg/>
-Upload text splits to Kimi AI and generate summaries
+Split text files exported from Memotrace: <https://github.com/LC044/WeChatMsg/>  
+Upload text splits to Kimi AI and generate summaries  
 Planning...
 
 ## Ps:
