@@ -1,0 +1,131 @@
+import os
+import datetime
+import re
+import glob
+import sys
+import csv
+
+def check_existing_files():
+    # 从环境变量获取配置信息
+    tmp_path = os.environ.get('TMP_PATH', '')
+    save_path = os.environ.get('SAVE_PATH', '')
+    overwrite_flag = int(os.environ.get('OVERWRITE_FLAG', 0))
+
+    # 检查临时文件路径是否存在
+    if not os.path.exists(tmp_path):
+        print("文件路径不存在，请检查后重新输入。")
+        sys.exit()
+
+    # 获取保存路径下所有的文本文件
+    existing_files = glob.glob(os.path.join(save_path, '*.txt'))
+    if existing_files:
+        # 从文件名中提取日期，并找到最大的日期
+        dates = [datetime.datetime.strptime(os.path.splitext(os.path.basename(f))[0].split('@')[0], "%m-%d-%Y") for f in existing_files]
+        max_date = max(dates)
+        print(f"保存目录下最大的时间戳为：{max_date.strftime('%m-%d-%Y')}")
+
+        # 根据覆盖标志删除文件或设置忽略日期
+        if overwrite_flag == 1:
+            for f in existing_files:
+                os.remove(f)
+            ignore_date = datetime.datetime.min
+        else:
+            ignore_date = max_date - datetime.timedelta(days=2)
+    else:
+        ignore_date = datetime.datetime.min
+
+    # 调用函数处理文本文件
+    process_txt_file(ignore_date)
+
+def process_txt_file(ignore_date):
+    # 从环境变量获取配置信息
+    tmp_path = os.environ.get('TMP_PATH', '')
+    save_path = os.environ.get('SAVE_PATH', '')
+
+    # 读取临时文件
+    with open(tmp_path, 'r') as f:
+        lines = f.read().split('\n')
+
+    current_date = None
+    current_file = None
+    current_text = ""
+    new_files = []
+
+    # 遍历文件的每一行
+    for line in lines:
+        match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.*)", line)
+        if match:
+            if current_file is not None and current_text:
+                current_file.write(current_text + '\n')
+                current_text = ""
+            
+            timestamp_str, text = match.groups()
+            timestamp = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+            if timestamp.hour < 3:
+                timestamp -= datetime.timedelta(days=1)
+            date_str = timestamp.strftime("%m-%d-%Y")
+            if date_str != current_date and datetime.datetime.strptime(date_str, "%m-%d-%Y") > ignore_date:
+                if current_file is not None:
+                    current_file.close()
+                current_date = date_str
+                source_file_name = os.path.splitext(os.path.basename(tmp_path))[0]
+                new_file_name = f"{current_date}@{source_file_name}.txt"
+                new_files.append(new_file_name)
+                current_file = open(os.path.join(save_path, new_file_name), 'w')
+                
+        else:
+            current_text += line + '\n'
+
+    # 关闭文件并打印新文件名
+    if current_file is not None:
+        if current_text:
+            current_file.write(current_text + '\n')
+        current_file.close()
+
+    if new_files:
+        print(', '.join(new_files))
+
+def process_chat_log_to_csv():
+    # 从环境变量获取配置信息
+    input_file_path = os.environ.get('TMP_PATH', '')
+    output_file_path = os.environ.get('CSV_OUTPUT_PATH', '')
+
+    # 读取聊天日志文件
+    with open(input_file_path, 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+
+    processed_lines = []
+    current_speaker = None
+    current_message = []
+    for line in lines:
+        match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) (.+)', line)
+        if match:
+            if current_speaker is not None:
+                processed_lines.append([timestamp, current_speaker, '\n'.join(current_message)])
+            timestamp, content = match.groups()
+            if '\n' in content:
+                current_speaker, message = content.split('\n', 1)
+                current_message = [message]
+            else:
+                current_speaker = content
+                current_message = []
+        elif line.strip() == '':
+            if current_speaker is not None:
+                processed_lines.append([timestamp, current_speaker, '\n'.join(current_message)])
+                current_speaker = None
+                current_message = []
+        else:
+            current_message.append(line.strip())
+
+    if current_speaker is not None:
+        processed_lines.append([timestamp, current_speaker, '\n'.join(current_message)])
+
+    # 写入CSV文件
+    with open(output_file_path, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(['时间', '发言人', '内容'])
+        writer.writerows(processed_lines)
+
+# 主程序逻辑
+check_existing_files()
+process_chat_log_to_csv()
